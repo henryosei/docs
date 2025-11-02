@@ -1,0 +1,134 @@
+---
+title: "Environments"
+description: "Organize your API usage across development, staging, and production with environment-specific configurations."
+---
+
+## Overview
+
+Fraudiant provides three separate environments to help you organize API usage across different stages of development:
+
+<CardGroup cols={3}>
+  <Card title="Development" icon="code">
+    Local development and testing
+  </Card>
+
+  <Card title="Staging" icon="flask">
+    Pre-production testing environment
+  </Card>
+
+  <Card title="Production" icon="rocket">
+    Live, customer-facing application
+  </Card>
+</CardGroup>
+
+---
+
+## Environment-Specific Features
+
+The following features are **isolated per environment**:
+
+### Domain Blocklists
+Custom blocklists are maintained separately for each environment. Domains blocked in production won't affect your development or staging environments.
+
+### Webhook Configurations
+Configure different webhook endpoints for each environment. Point production webhooks to live systems while development webhooks target localhost or testing tools.
+
+### Usage Analytics
+View usage logs, analytics, and metrics separately for each environment to track consumption patterns.
+
+### API Key Organization
+Create and manage environment-specific API keys to keep your workflows organized and secure.
+
+---
+
+## Shared Across All Environments
+
+<Warning>
+  All environments use the **same production API infrastructure**, and all requests count toward your **shared monthly quota**.
+</Warning>
+
+This means:
+- **Rate limits** apply across all environments combined
+- **Billing quotas** are shared (e.g., 10,000 requests/month applies to all environments)
+- **API responses** use the same validation logic and data
+- **Performance** is consistent across all environments
+
+---
+
+## How to Use Environments
+
+### Creating Environment-Specific API Keys
+
+<Steps>
+  <Step title="Access API Keys">
+    Navigate to the **API Keys** section in your [dashboard](https://app.fraudiant.com).
+  </Step>
+
+  <Step title="Create New Key">
+    Click **Create New Key** and provide a descriptive name (e.g., "Production API Key" or "Dev Environment").
+  </Step>
+
+  <Step title="Select Environment">
+    Choose the target environment: Development, Staging, or Production.
+  </Step>
+
+  <Step title="Save and Copy">
+    Save the key and copy it to your application's configuration.
+  </Step>
+</Steps>
+
+<Info>
+  The environment is determined automatically by which API key you use — no manual specification is needed in your requests.
+</Info>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use separate keys for each environment">
+    Never use your production API key in development or staging. This prevents accidental modifications to production data and makes debugging easier.
+  </Accordion>
+
+  <Accordion title="Test blocklists in development first">
+    Before adding domains to your production blocklist, test them in development or staging to ensure they don't block legitimate users.
+  </Accordion>
+
+  <Accordion title="Configure environment-specific webhooks">
+    Use tools like [ngrok](https://ngrok.com) or [RequestBin](https://requestbin.com) for local webhook testing in development.
+  </Accordion>
+
+  <Accordion title="Monitor quota usage across environments">
+    Remember that all environments share the same quota. Heavy testing in development can impact production availability.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Example Configuration
+
+Here's how you might organize API keys across environments:
+
+```javascript
+// config.js
+const config = {
+  development: {
+    apiKey: process.env.FRAUDIANT_DEV_API_KEY,
+    baseUrl: 'https://api.fraudiant.com'
+  },
+  staging: {
+    apiKey: process.env.FRAUDIANT_STAGING_API_KEY,
+    baseUrl: 'https://api.fraudiant.com'
+  },
+  production: {
+    apiKey: process.env.FRAUDIANT_PROD_API_KEY,
+    baseUrl: 'https://api.fraudiant.com'
+  }
+};
+
+export default config[process.env.NODE_ENV || 'development'];
+```
+
+<Note>
+  Store API keys as environment variables and never commit them to version control.
+</Note>

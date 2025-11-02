@@ -1,0 +1,339 @@
+---
+title: "Domain Validation"
+description: "Validate domain reputation, check for disposable providers, and assess domain trustworthiness."
+---
+
+## Endpoint
+
+```
+GET /domain/{domain}
+```
+
+Validates a domain and returns comprehensive information including disposability status, MX records, reputation data, and more.
+
+---
+
+## Parameters
+
+<ParamField path="domain" type="string" required>
+  The domain to validate (e.g., `example.com`)
+</ParamField>
+
+---
+
+## Request Example
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://api.fraudiant.com/domain/example.com" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.fraudiant.com/domain/example.com', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+headers = {'Authorization': 'Bearer YOUR_API_KEY'}
+response = requests.get(
+    'https://api.fraudiant.com/domain/example.com',
+    headers=headers
+)
+
+data = response.json()
+print(data)
+```
+
+```php PHP
+<?php
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://api.fraudiant.com/domain/example.com');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer YOUR_API_KEY'
+]);
+
+$response = curl_exec($ch);
+$data = json_decode($response, true);
+curl_close($ch);
+?>
+```
+
+```ruby Ruby
+require 'net/http'
+require 'json'
+
+uri = URI('https://api.fraudiant.com/domain/example.com')
+request = Net::HTTP::Get.new(uri)
+request['Authorization'] = 'Bearer YOUR_API_KEY'
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+  http.request(request)
+end
+
+data = JSON.parse(response.body)
+```
+
+</CodeGroup>
+
+---
+
+## Response Fields
+
+<ResponseField name="status" type="integer">
+  HTTP status code indicating the result of the request
+  - `200`: Success
+  - `400`: Invalid domain
+  - `429`: Rate limit exceeded
+</ResponseField>
+
+<ResponseField name="domain" type="string">
+  The normalized form of the input domain
+</ResponseField>
+
+<ResponseField name="domain_age_in_days" type="integer | null">
+  Number of days since the domain was registered. Returns `null` if the age is unknown.
+</ResponseField>
+
+<ResponseField name="mx" type="boolean">
+  Indicates whether the domain has valid MX (Mail Exchange) records configured for email delivery
+</ResponseField>
+
+<ResponseField name="mx_records" type="array">
+  List of MX records for the domain. Empty array if `mx` is `false`.
+</ResponseField>
+
+<ResponseField name="disposable" type="boolean">
+  **Key Field**: Indicates whether the domain is from a temporary or disposable email provider
+</ResponseField>
+
+<ResponseField name="disposable_provider" type="string | null">
+  The provider domain name if disposable, otherwise `null`
+</ResponseField>
+
+<ResponseField name="public_domain" type="boolean">
+  Indicates whether the domain is a public email service like Gmail, Yahoo, or Outlook
+</ResponseField>
+
+<ResponseField name="relay_domain" type="boolean">
+  Indicates whether the domain is used for email forwarding services
+</ResponseField>
+
+<ResponseField name="did_you_mean" type="string | null">
+  Suggested correction if there's a likely typo in the domain name
+</ResponseField>
+
+<ResponseField name="blocklisted" type="boolean">
+  Indicates whether the domain is on your account's custom blocklist (Pro feature only)
+</ResponseField>
+
+<ResponseField name="spam" type="boolean">
+  Indicates whether the domain is associated with spam or abusive activities
+</ResponseField>
+
+---
+
+## Response Examples
+
+### Success Response (Valid Domain)
+
+```json
+{
+  "status": 200,
+  "domain": "example.com",
+  "domain_age_in_days": 1234,
+  "mx": true,
+  "mx_records": ["mail.example.com", "mail2.example.com"],
+  "disposable": false,
+  "disposable_provider": null,
+  "public_domain": false,
+  "relay_domain": false,
+  "did_you_mean": null,
+  "blocklisted": false,
+  "spam": false
+}
+```
+
+### Disposable Domain Detected
+
+```json
+{
+  "status": 200,
+  "domain": "tempmail.com",
+  "domain_age_in_days": 456,
+  "mx": true,
+  "mx_records": ["mx1.tempmail.com"],
+  "disposable": true,
+  "disposable_provider": "tempmail.com",
+  "public_domain": false,
+  "relay_domain": false,
+  "did_you_mean": null,
+  "blocklisted": false,
+  "spam": true
+}
+```
+
+<Warning>
+  When `disposable: true`, you should typically **block or flag** this domain to prevent fraud.
+</Warning>
+
+### Public Email Provider
+
+```json
+{
+  "status": 200,
+  "domain": "gmail.com",
+  "domain_age_in_days": 7500,
+  "mx": true,
+  "mx_records": ["gmail-smtp-in.l.google.com"],
+  "disposable": false,
+  "disposable_provider": null,
+  "public_domain": true,
+  "relay_domain": false,
+  "did_you_mean": null,
+  "blocklisted": false,
+  "spam": false
+}
+```
+
+<Info>
+  `public_domain: true` indicates a well-known email provider. These are generally legitimate but don't identify the organization.
+</Info>
+
+---
+
+## Error Responses
+
+### Invalid Domain (400)
+
+```json
+{
+  "status": 400,
+  "error": "The domain is invalid."
+}
+```
+
+### Rate Limit Exceeded (429)
+
+```json
+{
+  "status": 429,
+  "error": "Too many requests"
+}
+```
+
+<Card title="Learn About Rate Limits" icon="gauge" href="/api-reference/rate-limits">
+  View rate limit details and upgrade options
+</Card>
+
+---
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Block domains without MX records">
+    ```javascript
+    const response = await fetch(`https://api.fraudiant.com/domain/${domain}`, {
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+    });
+
+    const data = await response.json();
+
+    if (!data.mx || data.mx_records.length === 0) {
+      return { error: 'Domain cannot receive emails' };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Detect newly registered domains">
+    ```javascript
+    // Flag domains less than 30 days old as potentially suspicious
+    if (data.domain_age_in_days !== null && data.domain_age_in_days < 30) {
+      console.warn('Domain is less than 30 days old');
+      // Apply additional verification
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Identify corporate vs personal emails">
+    ```javascript
+    if (data.public_domain) {
+      console.log('Personal email address (Gmail, Yahoo, etc.)');
+    } else {
+      console.log('Corporate or private domain email');
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Bulk domain validation">
+    ```javascript
+    const domains = ['example.com', 'test.com', 'sample.org'];
+
+    const results = await Promise.all(
+      domains.map(domain =>
+        fetch(`https://api.fraudiant.com/domain/${domain}`, {
+          headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+        }).then(r => r.json())
+      )
+    );
+
+    const disposableDomains = results.filter(r => r.disposable);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Domain vs Email Endpoint
+
+<Info>
+  **When to use Domain Validation vs Email Validation:**
+</Info>
+
+<CardGroup cols={2}>
+  <Card title="Use Domain Endpoint" icon="globe">
+    - Validating domain-level blocklists
+    - Checking company email policies
+    - Bulk domain reputation checks
+    - Pre-filtering allowed domains
+  </Card>
+
+  <Card title="Use Email Endpoint" icon="envelope">
+    - Validating specific user emails
+    - Detecting typos in email addresses
+    - Checking role-based accounts
+    - Full email-level validation
+  </Card>
+</CardGroup>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Combine with email endpoint for complete validation">
+    Use the domain endpoint for initial filtering, then validate specific emails with the email endpoint for comprehensive checks.
+  </Accordion>
+
+  <Accordion title="Cache domain results">
+    Domain reputation doesn't change frequently. Cache results for 24-48 hours to reduce API calls.
+  </Accordion>
+
+  <Accordion title="Monitor domain age">
+    Newly registered domains (< 30 days old) are often used for spam or fraud. Consider additional verification for young domains.
+  </Accordion>
+
+  <Accordion title="Handle null values">
+    Some fields like `domain_age_in_days` may return `null` if data is unavailable. Always handle null values gracefully in your code.
+  </Accordion>
+</AccordionGroup>

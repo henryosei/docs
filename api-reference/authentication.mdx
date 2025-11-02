@@ -1,0 +1,244 @@
+---
+title: "Authentication"
+description: "Learn how to authenticate your API requests using Bearer tokens and best security practices."
+---
+
+## Overview
+
+The Fraudiant API uses **Bearer token authentication** to secure all API endpoints. You must include your API key in the `Authorization` header of every request.
+
+<Warning>
+  Your API key is sensitive and should be kept secure. Never expose it in client-side code, public repositories, or logs.
+</Warning>
+
+---
+
+## Getting Your API Key
+
+To obtain your API credentials:
+
+<Steps>
+  <Step title="Register an Account">
+    Sign up at [app.fraudiant.com](https://app.fraudiant.com) to create your free account.
+  </Step>
+
+  <Step title="Access the Dashboard">
+    Log in to your dashboard after registration.
+  </Step>
+
+  <Step title="Navigate to API Keys">
+    Go to the **API Keys** section from the main navigation.
+  </Step>
+
+  <Step title="Generate or Retrieve Keys">
+    Create a new API key or copy an existing one. You can create separate keys for different environments.
+  </Step>
+</Steps>
+
+---
+
+## Authentication Methods
+
+### Recommended: Authorization Header
+
+The **recommended and most secure method** is to include your API key in the `Authorization` header using the Bearer token format:
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://api.fraudiant.com/email/[email protected]" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.fraudiant.com/email/[email protected]', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_API_KEY'
+}
+
+response = requests.get(
+    'https://api.fraudiant.com/email/[email protected]',
+    headers=headers
+)
+
+data = response.json()
+```
+
+```php PHP
+<?php
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_URL, 'https://api.fraudiant.com/email/[email protected]');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer YOUR_API_KEY'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$data = json_decode($response, true);
+?>
+```
+
+```ruby Ruby
+require 'net/http'
+require 'json'
+
+uri = URI('https://api.fraudiant.com/email/[email protected]')
+request = Net::HTTP::Get.new(uri)
+request['Authorization'] = 'Bearer YOUR_API_KEY'
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+  http.request(request)
+end
+
+data = JSON.parse(response.body)
+```
+
+```go Go
+package main
+
+import (
+    "fmt"
+    "io"
+    "net/http"
+)
+
+func main() {
+    client := &http.Client{}
+    req, _ := http.NewRequest("GET", "https://api.fraudiant.com/email/[email protected]", nil)
+    req.Header.Add("Authorization", "Bearer YOUR_API_KEY")
+
+    resp, _ := client.Do(req)
+    defer resp.Body.Close()
+
+    body, _ := io.ReadAll(resp.Body)
+    fmt.Println(string(body))
+}
+```
+
+</CodeGroup>
+
+---
+
+### Not Recommended: Query Parameter
+
+<Warning>
+  While you can pass your API key as a query parameter, **this method is not recommended** for security reasons as API keys may be exposed in logs, browser history, or URL histories.
+</Warning>
+
+```bash
+# Not recommended - API key exposed in URL
+curl "https://api.fraudiant.com/email/[email protected]?api_key=YOUR_API_KEY"
+```
+
+**Why this is insecure:**
+- API keys appear in server logs
+- Keys are visible in browser history
+- URLs may be cached or stored by proxies
+- Risk of accidental exposure when sharing URLs
+
+---
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store API keys as environment variables">
+    Never hardcode API keys directly in your source code. Use environment variables or secret management systems:
+
+    ```javascript
+    // ✅ Good
+    const apiKey = process.env.FRAUDIANT_API_KEY;
+
+    // ❌ Bad
+    const apiKey = 'fdt_live_abc123...';
+    ```
+  </Accordion>
+
+  <Accordion title="Use separate keys for different environments">
+    Create distinct API keys for development, staging, and production environments. This makes it easier to rotate keys and debug issues without affecting production.
+  </Accordion>
+
+  <Accordion title="Rotate keys regularly">
+    Periodically regenerate your API keys, especially after team member departures or if you suspect a key has been compromised.
+  </Accordion>
+
+  <Accordion title="Restrict key permissions">
+    If available, use API keys with the minimum necessary permissions for your use case.
+  </Accordion>
+
+  <Accordion title="Never commit keys to version control">
+    Add your environment files (`.env`, `.env.local`, etc.) to `.gitignore` to prevent accidental commits:
+
+    ```bash
+    # .gitignore
+    .env
+    .env.local
+    .env.production
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor API key usage">
+    Regularly review API usage in your dashboard to detect any unusual activity that might indicate a compromised key.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when the API key is missing, invalid, or expired:
+
+```json
+{
+  "status": 401,
+  "error": "Unauthorized. Please provide a valid API key."
+}
+```
+
+**Common causes:**
+- Missing `Authorization` header
+- Invalid or expired API key
+- Incorrect Bearer token format
+
+### 403 Forbidden
+
+Returned when the API key doesn't have permission for the requested resource:
+
+```json
+{
+  "status": 403,
+  "error": "This feature requires a Pro account."
+}
+```
+
+---
+
+## Testing Your Authentication
+
+Use this simple test to verify your authentication is working:
+
+```bash
+curl -X GET "https://api.fraudiant.com/email/[email protected]" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+A successful response will return a `200` status code with email validation data.
+
+<Info>
+  If you receive a `401 Unauthorized` error, double-check that your API key is correct and properly formatted in the Authorization header.
+</Info>

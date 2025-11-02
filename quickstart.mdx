@@ -1,80 +1,134 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Get started with Fraudiant in minutes — detect and block disposable email addresses in real time."
 ---
 
-## Get started in three steps
+## Get Your API Key
 
-Get your documentation site running locally and make your first customization.
+To start using Fraudiant, you'll need an API key:
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Sign Up">
+    Create a free account at [app.fraudiant.com](https://app.fraudiant.com)
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Get Your API Key">
+    After logging in, navigate to the **API Keys** section in your dashboard and copy your key.
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Make Your First Request">
+    Use the example below to validate your first email address.
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Warning>
+  Keep your API key secure! Never expose it in client-side code or public repositories.
+</Warning>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+---
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Make Your First Request
 
-### Step 3: Go live
+Here's a simple example to check if an email address is disposable:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<CodeGroup>
 
-## Next steps
+```bash cURL
+curl -X GET "https://api.fraudiant.com/email/[email protected]" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
 
-Now that you have your docs running, explore these key features:
+```javascript JavaScript
+const response = await fetch('https://api.fraudiant.com/email/[email protected]', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_API_KEY'
+}
+
+response = requests.get(
+    'https://api.fraudiant.com/email/[email protected]',
+    headers=headers
+)
+
+data = response.json()
+print(data)
+```
+
+```php PHP
+<?php
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_URL, 'https://api.fraudiant.com/email/[email protected]');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer YOUR_API_KEY'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$data = json_decode($response, true);
+print_r($data);
+?>
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": 200,
+  "email": "[email protected]",
+  "normalized_email": "[email protected]",
+  "domain": "tempmail.com",
+  "domain_age_in_days": 1234,
+  "mx": true,
+  "mx_records": ["mx1.tempmail.com"],
+  "disposable": true,
+  "disposable_provider": "tempmail.com",
+  "public_domain": false,
+  "relay_domain": false,
+  "role_account": false,
+  "did_you_mean": null,
+  "blocklisted": false,
+  "spam": true
+}
+```
+
+<Info>
+  In this example, `disposable: true` indicates that the email is from a temporary email provider and should likely be blocked.
+</Info>
+
+---
+
+## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    Learn about secure authentication methods
+  </Card>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Card title="Email Endpoint" icon="envelope" href="/api-reference/email-endpoint">
+    Explore the email validation endpoint
+  </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Card title="Domain Endpoint" icon="globe" href="/api-reference/domain-endpoint">
+    Check domain reputation and validity
+  </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Rate Limits" icon="gauge" href="/api-reference/rate-limits">
+    Understand API rate limits and quotas
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

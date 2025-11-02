@@ -1,0 +1,426 @@
+---
+title: "Use Cases"
+description: "Explore common use cases and implementation patterns for Fraudiant API integration."
+---
+
+## Overview
+
+Fraudiant helps businesses across various industries prevent fraud, improve data quality, and reduce operational costs. Here are the most common use cases and implementation patterns.
+
+---
+
+## Prevent Fraudulent Signups
+
+### Challenge
+Fake accounts created with disposable email addresses drain resources, skew analytics, and enable platform abuse.
+
+### Solution
+Validate email addresses during registration to block disposable and temporary email providers.
+
+<CodeGroup>
+
+```javascript React
+async function validateSignup(email) {
+  const response = await fetch(
+    `https://api.fraudiant.com/email/${encodeURIComponent(email)}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  );
+
+  const data = await response.json();
+
+  // Block disposable, spam, or emails without MX records
+  if (data.disposable || data.spam || !data.mx) {
+    return {
+      valid: false,
+      reason: 'Please use a valid, non-disposable email address'
+    };
+  }
+
+  // Optionally warn about role accounts
+  if (data.role_account) {
+    return {
+      valid: true,
+      warning: 'Role-based email detected (e.g., info@, support@)'
+    };
+  }
+
+  return { valid: true };
+}
+```
+
+```python Python
+import requests
+
+def validate_signup(email):
+    headers = {'Authorization': f'Bearer {FRAUDIANT_API_KEY}'}
+    response = requests.get(
+        f'https://api.fraudiant.com/email/{email}',
+        headers=headers
+    )
+
+    data = response.json()
+
+    # Block disposable, spam, or emails without MX records
+    if data.get('disposable') or data.get('spam') or not data.get('mx'):
+        return {
+            'valid': False,
+            'reason': 'Please use a valid, non-disposable email address'
+        }
+
+    # Optionally warn about role accounts
+    if data.get('role_account'):
+        return {
+            'valid': True,
+            'warning': 'Role-based email detected'
+        }
+
+    return {'valid': True}
+```
+
+```php PHP
+<?php
+function validateSignup($email) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.fraudiant.com/email/" . urlencode($email));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . getenv('FRAUDIANT_API_KEY')
+    ]);
+
+    $response = curl_exec($ch);
+    $data = json_decode($response, true);
+    curl_close($ch);
+
+    // Block disposable, spam, or emails without MX records
+    if ($data['disposable'] || $data['spam'] || !$data['mx']) {
+        return [
+            'valid' => false,
+            'reason' => 'Please use a valid, non-disposable email address'
+        ];
+    }
+
+    return ['valid' => true];
+}
+?>
+```
+
+</CodeGroup>
+
+### Best Practices
+- **Provide clear feedback** to users about why their email was rejected
+- **Suggest alternatives** if a typo is detected using the `did_you_mean` field
+- **Cache results** for 24 hours to reduce API calls for repeated signups
+
+---
+
+## Improve Email Marketing Data Quality
+
+### Challenge
+Email marketing campaigns suffer from high bounce rates when databases contain disposable or invalid email addresses.
+
+### Solution
+Validate emails before adding them to your marketing lists and periodically audit existing contacts.
+
+```javascript
+async function addToMarketingList(email) {
+  const validation = await fetch(
+    `https://api.fraudiant.com/email/${email}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  ).then(r => r.json());
+
+  // Quality score based on multiple factors
+  const qualityChecks = {
+    hasValidMX: validation.mx,
+    notDisposable: !validation.disposable,
+    notSpam: !validation.spam,
+    notRoleAccount: !validation.role_account,
+    domainAge: validation.domain_age_in_days > 365 // Domain older than 1 year
+  };
+
+  const qualityScore = Object.values(qualityChecks).filter(Boolean).length;
+
+  if (qualityScore >= 4) {
+    // High quality email - add to list
+    return { accepted: true, quality: 'high' };
+  } else if (qualityScore >= 3) {
+    // Medium quality - add with lower priority
+    return { accepted: true, quality: 'medium' };
+  } else {
+    // Low quality - reject
+    return { accepted: false, quality: 'low' };
+  }
+}
+```
+
+### Benefits
+- **Reduce bounce rates** by 60-80%
+- **Improve deliverability** scores with email providers
+- **Save costs** by not sending to invalid addresses
+- **Maintain sender reputation**
+
+---
+
+## Filter Trial Abuse & Multi-Account Fraud
+
+### Challenge
+Users create multiple trial accounts using disposable emails to abuse free tier limits.
+
+### Solution
+Combine email validation with domain blocklisting to prevent serial trial abusers.
+
+```javascript
+async function validateTrialSignup(email) {
+  const domain = email.split('@')[1];
+
+  // Check if domain is blocklisted (Pro feature)
+  const blocklistCheck = await fetch(
+    `https://api.fraudiant.com/blocklist/${domain}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  );
+
+  if (blocklistCheck.status === 200) {
+    return {
+      allowed: false,
+      reason: 'Domain not eligible for trial'
+    };
+  }
+
+  // Validate email
+  const validation = await fetch(
+    `https://api.fraudiant.com/email/${email}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  ).then(r => r.json());
+
+  // Strict validation for trials
+  if (validation.disposable || validation.spam || validation.relay_domain) {
+    return {
+      allowed: false,
+      reason: 'Temporary email addresses are not eligible for trials'
+    };
+  }
+
+  // Check domain age for new/suspicious domains
+  if (validation.domain_age_in_days !== null && validation.domain_age_in_days < 30) {
+    return {
+      allowed: false,
+      reason: 'Domain too new for trial eligibility'
+    };
+  }
+
+  return { allowed: true };
+}
+```
+
+---
+
+## B2B Lead Qualification
+
+### Challenge
+Sales teams waste time on leads using personal or disposable emails instead of corporate addresses.
+
+### Solution
+Filter for corporate email addresses and flag public domain providers.
+
+```javascript
+async function qualifyLead(email) {
+  const validation = await fetch(
+    `https://api.fraudiant.com/email/${email}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  ).then(r => r.json());
+
+  // B2B qualification rules
+  const isCorporateEmail =
+    !validation.public_domain &&
+    !validation.disposable &&
+    validation.mx &&
+    validation.domain_age_in_days > 180; // Domain at least 6 months old
+
+  if (!isCorporateEmail) {
+    return {
+      qualified: false,
+      leadScore: 1,
+      reason: 'Personal or non-corporate email address'
+    };
+  }
+
+  // High-quality corporate lead
+  return {
+    qualified: true,
+    leadScore: 10,
+    domain: validation.domain
+  };
+}
+```
+
+### Use Cases
+- **Lead scoring** based on email domain quality
+- **CRM enrichment** with domain data
+- **Sales prioritization** focusing on corporate emails
+- **Reduced follow-up waste** on low-quality leads
+
+---
+
+## E-commerce Order Verification
+
+### Challenge
+Fraudulent orders often use disposable emails to avoid tracking and chargebacks.
+
+### Solution
+Add email validation as part of fraud detection scoring during checkout.
+
+```javascript
+async function validateOrder(orderData) {
+  const emailValidation = await fetch(
+    `https://api.fraudiant.com/email/${orderData.email}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  ).then(r => r.json());
+
+  // Fraud risk scoring
+  let riskScore = 0;
+
+  if (emailValidation.disposable) riskScore += 50;
+  if (emailValidation.spam) riskScore += 30;
+  if (!emailValidation.mx) riskScore += 20;
+  if (emailValidation.domain_age_in_days < 30) riskScore += 25;
+  if (emailValidation.relay_domain) riskScore += 15;
+
+  if (riskScore >= 50) {
+    return {
+      action: 'decline',
+      reason: 'High fraud risk detected'
+    };
+  } else if (riskScore >= 30) {
+    return {
+      action: 'review',
+      reason: 'Manual review recommended'
+    };
+  } else {
+    return {
+      action: 'approve',
+      reason: 'Low fraud risk'
+    };
+  }
+}
+```
+
+---
+
+## SaaS Platform Protection
+
+### Challenge
+Spammers create fake accounts to abuse contact forms, support systems, or community features.
+
+### Solution
+Implement progressive validation based on user actions.
+
+```javascript
+const ValidationLevels = {
+  // Light validation for anonymous actions
+  ANONYMOUS: async (email) => {
+    const data = await validateEmail(email);
+    return !data.disposable && data.mx;
+  },
+
+  // Medium validation for account creation
+  SIGNUP: async (email) => {
+    const data = await validateEmail(email);
+    return !data.disposable && !data.spam && data.mx;
+  },
+
+  // Strict validation for premium features
+  PREMIUM: async (email) => {
+    const data = await validateEmail(email);
+    return (
+      !data.disposable &&
+      !data.spam &&
+      !data.relay_domain &&
+      data.mx &&
+      data.domain_age_in_days > 90
+    );
+  }
+};
+
+async function validateEmail(email) {
+  return fetch(`https://api.fraudiant.com/email/${email}`, {
+    headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+  }).then(r => r.json());
+}
+```
+
+---
+
+## Form Spam Prevention
+
+### Challenge
+Contact forms and newsletter signups receive spam submissions from bots using disposable emails.
+
+### Solution
+Add real-time validation to forms before submission.
+
+```javascript
+// Frontend validation (call your backend)
+async function validateFormEmail(email) {
+  const response = await fetch('/api/validate-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+
+  return response.json();
+}
+
+// Backend endpoint
+app.post('/api/validate-email', async (req, res) => {
+  const { email } = req.body;
+
+  const validation = await fetch(
+    `https://api.fraudiant.com/email/${email}`,
+    {
+      headers: { 'Authorization': `Bearer ${process.env.FRAUDIANT_API_KEY}` }
+    }
+  ).then(r => r.json());
+
+  if (validation.disposable || validation.spam) {
+    return res.status(400).json({
+      valid: false,
+      message: 'Please provide a valid email address'
+    });
+  }
+
+  res.json({ valid: true });
+});
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Integration Examples" icon="code" href="/integration-examples">
+    View framework-specific integration guides
+  </Card>
+
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    Learn optimization strategies and patterns
+  </Card>
+
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore complete API documentation
+  </Card>
+
+  <Card title="Get API Key" icon="key" href="https://app.fraudiant.com">
+    Sign up and start building
+  </Card>
+</CardGroup>

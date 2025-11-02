@@ -1,0 +1,314 @@
+---
+title: "Rate Limits"
+description: "Understand API rate limits, quotas, and best practices for optimizing your API usage."
+---
+
+## Overview
+
+Fraudiant enforces rate limits to ensure fair usage and maintain service quality for all customers. Rate limits vary based on your subscription plan and authentication status.
+
+<Info>
+  Rate limits apply **per API key** and are counted across all environments (development, staging, production).
+</Info>
+
+---
+
+## Rate Limit Tiers
+
+<CardGroup cols={3}>
+  <Card title="Free Plan" icon="gift">
+    **1 request/second**
+
+    Sufficient for development and small applications
+  </Card>
+
+  <Card title="Pro Plan" icon="rocket">
+    **5-50 requests/second**
+
+    Varies by plan tier. Suitable for production applications
+  </Card>
+
+  <Card title="Unauthenticated" icon="lock-open">
+    **5 requests/hour**
+
+    Very limited. Authentication required for normal use
+  </Card>
+</CardGroup>
+
+<Warning>
+  Unauthenticated requests are severely limited and intended only for testing. Always authenticate your requests for production use.
+</Warning>
+
+---
+
+## Rate Limit Headers
+
+Every API response includes headers that help you track your rate limit usage:
+
+```http
+X-RateLimit-Limit: 50
+X-RateLimit-Remaining: 42
+X-RateLimit-Reset: 1640995200
+```
+
+<ResponseField name="X-RateLimit-Limit" type="integer">
+  Maximum requests allowed per time window
+</ResponseField>
+
+<ResponseField name="X-RateLimit-Remaining" type="integer">
+  Number of requests remaining in the current window
+</ResponseField>
+
+<ResponseField name="X-RateLimit-Reset" type="timestamp">
+  Unix timestamp when the rate limit resets
+</ResponseField>
+
+---
+
+## Rate Limit Exceeded Response
+
+When you exceed your rate limit, the API returns a `429 Too Many Requests` status code:
+
+```json
+{
+  "status": 429,
+  "error": "Too many requests",
+  "message": "Rate limit exceeded. Please wait before making more requests.",
+  "retry_after": 30
+}
+```
+
+<ResponseField name="retry_after" type="integer">
+  Number of seconds to wait before making another request
+</ResponseField>
+
+### IP Blocking
+
+<Warning>
+  Repeated rate limit violations (sustained abuse) will trigger **temporary IP blocking** lasting approximately **one hour**.
+</Warning>
+
+If your IP is blocked, you'll receive:
+
+```json
+{
+  "status": 403,
+  "error": "IP temporarily blocked due to rate limit violations",
+  "blocked_until": "2024-01-15T11:30:00Z"
+}
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Monitor rate limit headers">
+    Always check the `X-RateLimit-Remaining` header and implement logic to slow down requests when approaching the limit.
+
+    ```javascript
+    const response = await fetch('https://api.fraudiant.com/email/[email protected]', {
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+    });
+
+    const remaining = response.headers.get('X-RateLimit-Remaining');
+
+    if (remaining < 10) {
+      console.warn('Approaching rate limit. Implement backoff strategy.');
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Implement exponential backoff">
+    When receiving 429 responses, implement exponential backoff to avoid continued rate limit violations:
+
+    ```javascript
+    async function fetchWithRetry(url, options, maxRetries = 3) {
+      for (let i = 0; i < maxRetries; i++) {
+        const response = await fetch(url, options);
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After') || Math.pow(2, i);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          continue;
+        }
+
+        return response;
+      }
+
+      throw new Error('Max retries exceeded');
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Cache validation results">
+    Cache email and domain validation results to reduce redundant API calls:
+
+    ```javascript
+    const cache = new Map();
+
+    async function validateEmail(email) {
+      if (cache.has(email)) {
+        return cache.get(email);
+      }
+
+      const response = await fetch(`https://api.fraudiant.com/email/${email}`, {
+        headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+      });
+
+      const data = await response.json();
+
+      // Cache for 24 hours
+      cache.set(email, data);
+      setTimeout(() => cache.delete(email), 24 * 60 * 60 * 1000);
+
+      return data;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use batch operations when available">
+    For bulk validation, consider accumulating emails and processing them in batches rather than making individual requests for each email.
+  </Accordion>
+
+  <Accordion title="Choose the right plan tier">
+    Monitor your usage patterns and upgrade your plan if you frequently hit rate limits. Pro plans offer significantly higher limits.
+  </Accordion>
+
+  <Accordion title="Distribute load across time">
+    Avoid sending all requests at once. Distribute validation requests throughout your workflow to stay within rate limits.
+  </Accordion>
+
+  <Accordion title="Use separate API keys per environment">
+    Create separate API keys for development, staging, and production. This prevents development testing from consuming production quotas.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Monthly Quotas
+
+In addition to per-second rate limits, your plan includes a **monthly request quota**:
+
+| Plan | Monthly Quota |
+|------|---------------|
+| Free | 10,000 requests/month |
+| Pro Starter | 100,000 requests/month |
+| Pro Business | 500,000 requests/month |
+| Pro Enterprise | Custom limits |
+
+<Info>
+  Monthly quotas reset on the first day of each month. Unused requests do not roll over.
+</Info>
+
+### Quota Exceeded Response
+
+When you exceed your monthly quota:
+
+```json
+{
+  "status": 429,
+  "error": "Monthly quota exceeded",
+  "message": "You have reached your monthly request limit. Please upgrade your plan or wait for quota reset.",
+  "quota_resets_at": "2024-02-01T00:00:00Z"
+}
+```
+
+---
+
+## Monitoring Your Usage
+
+Track your API usage in real-time through your [dashboard](https://app.fraudiant.com/usage):
+
+- Current rate limit usage (requests/second)
+- Monthly quota consumption
+- Usage trends and analytics
+- Peak usage times
+- Environment-specific breakdowns
+
+<Card title="View Usage Dashboard" icon="chart-line" href="https://app.fraudiant.com/usage">
+  Monitor your API usage and analytics
+</Card>
+
+---
+
+## Upgrading Your Plan
+
+If you consistently hit rate limits or need higher quotas:
+
+<Steps>
+  <Step title="Review Your Usage">
+    Check your usage patterns in the [dashboard](https://app.fraudiant.com/usage)
+  </Step>
+
+  <Step title="Compare Plans">
+    Review [pricing and plan options](https://app.fraudiant.com/pricing)
+  </Step>
+
+  <Step title="Upgrade">
+    Upgrade your plan through the dashboard. Rate limit increases take effect immediately.
+  </Step>
+
+  <Step title="Contact Sales">
+    For custom enterprise limits, [contact our sales team](mailto:sales@fraudiant.com)
+  </Step>
+</Steps>
+
+<Card title="Upgrade to Pro" icon="crown" href="https://app.fraudiant.com/upgrade">
+  Get higher rate limits and monthly quotas
+</Card>
+
+---
+
+## Testing Rate Limits
+
+During development, you can test your rate limit handling by:
+
+1. **Making rapid sequential requests** to trigger 429 responses
+2. **Monitoring response headers** to verify your parsing logic
+3. **Testing backoff strategies** to ensure graceful degradation
+
+```javascript
+// Example: Test rate limit handling
+async function testRateLimits() {
+  const requests = Array(100).fill(null).map((_, i) =>
+    fetch(`https://api.fraudiant.com/email/test${i}@example.com`, {
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+    })
+  );
+
+  const responses = await Promise.allSettled(requests);
+
+  const rateLimited = responses.filter(r =>
+    r.status === 'fulfilled' && r.value.status === 429
+  );
+
+  console.log(`${rateLimited.length} requests were rate limited`);
+}
+```
+
+<Warning>
+  Avoid sustained rate limit testing in production to prevent IP blocking.
+</Warning>
+
+---
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Do rate limits apply across all environments?">
+    Yes. Rate limits are tied to your API key, and all requests using that key count toward your limit regardless of environment.
+  </Accordion>
+
+  <Accordion title="What happens if I exceed my rate limit?">
+    You'll receive a 429 status code and must wait before making more requests. Repeated violations may result in temporary IP blocking.
+  </Accordion>
+
+  <Accordion title="Can I request a rate limit increase?">
+    Yes. Upgrade to a Pro plan for higher limits, or contact sales for custom enterprise quotas.
+  </Accordion>
+
+  <Accordion title="Do failed requests count toward my quota?">
+    Yes. All requests, including those that return errors, count toward your rate limits and monthly quota.
+  </Accordion>
+</AccordionGroup>

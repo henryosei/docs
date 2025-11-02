@@ -1,33 +1,126 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Introduction"
+description: "Learn about the Fraudiant API, base URL, authentication, and response formats."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Welcome to the Fraudiant API
 
-## Welcome
+The **Fraudiant API** is a RESTful API designed to help you detect and block disposable, temporary, or fraudulent email addresses and domains in real time.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+Our API follows REST principles and provides:
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+- **Resource-oriented URLs** for intuitive endpoint structure
+- **JSON-encoded responses** for easy parsing
+- **Standard HTTP methods** (GET, POST, DELETE)
+- **Standard HTTP status codes** for error handling
+- **Bearer token authentication** for secure access
+
+<Info>
+  The Fraudiant API is continuously updated with new disposable email providers, spam domains, and enhanced validation rules to ensure your application always benefits from the latest fraud detection intelligence.
+</Info>
+
+---
+
+## Base URL
+
+All API requests are made to:
+
+```
+https://api.fraudiant.com
+```
+
+---
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API endpoints require authentication using **Bearer tokens**. Include your API key in the `Authorization` header of every request:
+
+```bash
+Authorization: Bearer YOUR_API_KEY
+```
+
+<Card title="Learn More About Authentication" icon="key" href="/api-reference/authentication">
+  View detailed authentication documentation and best practices
+</Card>
+
+---
+
+## Response Format
+
+All responses are returned in JSON format with the following structure:
+
+### Success Response (200)
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "status": 200,
+  "email": "[email protected]",
+  "domain": "example.com",
+  "disposable": false,
+  "mx": true,
+  // ... additional fields
+}
 ```
+
+### Error Response (400, 429, etc.)
+
+```json
+{
+  "status": 400,
+  "error": "The email address is invalid."
+}
+```
+
+---
+
+## Available Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Email Validation" icon="envelope" href="/api-reference/email-endpoint">
+    Check if an email address is disposable, valid, or spam
+  </Card>
+
+  <Card title="Domain Validation" icon="globe" href="/api-reference/domain-endpoint">
+    Validate domain reputation and configuration
+  </Card>
+
+  <Card title="Blocklist Management" icon="shield" href="/api-reference/blocklist-endpoint">
+    Manage your custom domain blocklist (Pro only)
+  </Card>
+
+  <Card title="Rate Limits" icon="gauge" href="/api-reference/rate-limits">
+    Understand API rate limits and quotas
+  </Card>
+</CardGroup>
+
+---
+
+## Getting Started
+
+<Steps>
+  <Step title="Get Your API Key">
+    Sign up at [app.fraudiant.com](https://app.fraudiant.com) and retrieve your API key from the dashboard.
+  </Step>
+
+  <Step title="Review Authentication">
+    Learn how to properly authenticate your requests in the [Authentication](/api-reference/authentication) documentation.
+  </Step>
+
+  <Step title="Test the Email Endpoint">
+    Make your first validation request using the [Email Validation](/api-reference/email-endpoint) endpoint.
+  </Step>
+
+  <Step title="Check Rate Limits">
+    Understand your usage limits in the [Rate Limits](/api-reference/rate-limits) documentation.
+  </Step>
+</Steps>
+
+---
+
+## Support
+
+Need help? Check out these resources:
+
+- **Documentation**: Browse our comprehensive guides and API reference
+- **Status Page**: Monitor API uptime and performance
+- **Email Support**: Contact our team at support@fraudiant.com
